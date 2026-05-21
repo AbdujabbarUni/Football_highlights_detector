@@ -7,7 +7,7 @@ import subprocess
 import numpy as np
 import librosa
 import logging
-from config import *
+from config.config import SR, N_FFT, HOP_LENGTH
 
 logger = logging.getLogger(__name__)
 

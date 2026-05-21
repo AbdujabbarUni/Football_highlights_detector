@@ -6,7 +6,7 @@ import subprocess
 import os
 import logging
 from pathlib import Path
-from config import *
+from config.config import MAX_HIGHLIGHT_LENGTH, OUTPUT_FPS, VIDEO_CODEC, VIDEO_CRF
 
 logger = logging.getLogger(__name__)
 

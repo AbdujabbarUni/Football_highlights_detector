@@ -6,7 +6,7 @@ import numpy as np
 from scipy import signal
 from scipy.signal import find_peaks
 import logging
-from config import *
+from config.config import SOUND_THRESHOLD, MIN_PEAK_DISTANCE, HOP_LENGTH, SR, SMOOTHING_WINDOW
 from .utils import normalize_audio, smooth_signal
 
 logger = logging.getLogger(__name__)

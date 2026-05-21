@@ -13,8 +13,8 @@ import argparse
 import logging
 from pathlib import Path
 
-# Add src directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add root directory to path
+sys.path.insert(0, os.path.dirname(__file__))
 
 from src.audio_processor import AudioProcessor
 from src.peak_detector import PeakDetector
@@ -24,7 +24,12 @@ from src.utils import (
     setup_logging, ensure_output_dir, save_timestamps,
     validate_input_file, get_video_duration, format_file_size
 )
-from config import *
+from config.config import (
+    SR, N_FFT, HOP_LENGTH, SOUND_THRESHOLD, MIN_PEAK_DISTANCE,
+    CLIP_DURATION, CLIP_PRE_DURATION, CLIP_POST_DURATION,
+    MAX_HIGHLIGHT_LENGTH, OUTPUT_FPS, VIDEO_CODEC, VIDEO_CRF,
+    OUTPUT_DIR, GENERATE_PLOTS, VERBOSE
+)
 
 
 class HighlightsDetector:

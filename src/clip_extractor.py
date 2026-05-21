@@ -8,7 +8,7 @@ import subprocess
 import os
 import logging
 from pathlib import Path
-from config import *
+from config.config import CLIP_DURATION, CLIP_PRE_DURATION, CLIP_POST_DURATION
 from .utils import seconds_to_time
 
 logger = logging.getLogger(__name__)
