@@ -62,7 +62,7 @@ class VideoCompiler:
     
     def compile_clips(self, clip_paths, output_path):
         """
-        Compile clips into single video with AUDIO preserved
+        Compile clips into single video with AUDIO preserved using COPY streams
         
         Args:
             clip_paths: List of clip file paths (in order)
@@ -77,7 +77,7 @@ class VideoCompiler:
                 return False
             
             logger.info(f"Compiling {len(clip_paths)} clips into {output_path}")
-            logger.info("WITH ORIGINAL AUDIO PRESERVED")
+            logger.info("WITH ORIGINAL AUDIO PRESERVED (using stream copy)")
             
             # Create concat file
             concat_file = 'concat.txt'
@@ -85,21 +85,19 @@ class VideoCompiler:
                 return False
             
             try:
-                # Use FFmpeg concat demuxer with audio
+                # Use FFmpeg concat demuxer with COPY streams (no re-encoding)
                 cmd = [
                     'ffmpeg',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_file,
-                    '-c:v', self.codec,         # Video codec
-                    '-crf', str(self.crf),      # Video quality
-                    '-c:a', 'aac',              # AUDIO: AAC codec
-                    '-b:a', '192k',             # AUDIO: 192kbps high quality
+                    '-c:v', 'copy',         # COPY video (no re-encoding)
+                    '-c:a', 'copy',         # COPY audio (no re-encoding) *** CRITICAL ***
                     '-n',
                     output_path
                 ]
                 
-                logger.info(f"Running FFmpeg with audio: {' '.join(cmd)}")
+                logger.info(f"Running FFmpeg with COPY streams for audio: {' '.join(cmd)}")
                 
                 result = subprocess.run(
                     cmd,
@@ -156,12 +154,10 @@ class VideoCompiler:
             # Filter complex
             cmd.extend(['-filter_complex', filter_str])
             
-            # Output settings with audio
+            # Output settings with audio (using copy)
             cmd.extend([
-                '-c:v', self.codec,
-                '-crf', str(self.crf),
-                '-c:a', 'aac',              # AUDIO: AAC codec
-                '-b:a', '192k',             # AUDIO: 192kbps
+                '-c:v', 'copy',
+                '-c:a', 'copy',             # COPY audio (no re-encoding)
                 '-n',
                 output_path
             ])
@@ -227,7 +223,7 @@ class VideoCompiler:
     
     def trim_to_max_length(self, video_path, output_path, max_seconds=None):
         """
-        Trim video to maximum length WITH AUDIO
+        Trim video to maximum length WITH AUDIO using COPY streams
         
         Args:
             video_path: Path to input video
@@ -241,15 +237,14 @@ class VideoCompiler:
             if max_seconds is None:
                 max_seconds = self.max_length
             
-            logger.info(f"Trimming video to {max_seconds}s WITH AUDIO")
+            logger.info(f"Trimming video to {max_seconds}s WITH ORIGINAL AUDIO")
             
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-t', str(max_seconds),
-                '-c:v', self.codec,
-                '-c:a', 'aac',              # AUDIO: AAC codec
-                '-b:a', '192k',             # AUDIO: 192kbps
+                '-c:v', 'copy',            # COPY video (no re-encoding)
+                '-c:a', 'copy',            # COPY audio (no re-encoding) *** CRITICAL ***
                 '-n',
                 output_path
             ]
