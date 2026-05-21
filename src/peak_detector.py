@@ -6,7 +6,10 @@ import numpy as np
 from scipy import signal
 from scipy.signal import find_peaks
 import logging
-from config.config import SOUND_THRESHOLD, MIN_PEAK_DISTANCE, HOP_LENGTH, SR, SMOOTHING_WINDOW
+from config.config import (
+    SOUND_THRESHOLD, MIN_PEAK_DISTANCE, HOP_LENGTH, SR, SMOOTHING_WINDOW,
+    SELECT_TOP_CLIPS, MAX_CLIPS, MIN_CLIP_PROMINENCE
+)
 from .utils import normalize_audio, smooth_signal
 
 logger = logging.getLogger(__name__)
@@ -68,10 +71,15 @@ class PeakDetector:
                 energy_smoothed,
                 height=height_threshold,
                 distance=self.min_distance_frames,
-                prominence=0.1
+                prominence=MIN_CLIP_PROMINENCE
             )
             
-            logger.info(f"Detected {len(peaks)} peaks")
+            logger.info(f"Detected {len(peaks)} initial peaks")
+            
+            # Filter to top peaks if too many
+            if SELECT_TOP_CLIPS and len(peaks) > MAX_CLIPS:
+                peaks = self._select_top_peaks(energy_smoothed, peaks, MAX_CLIPS)
+                logger.info(f"Filtered to top {len(peaks)} peaks by prominence")
             
             # Convert peak indices to timestamps
             peak_timestamps = timestamps[peaks].tolist()
@@ -84,6 +92,33 @@ class PeakDetector:
         except Exception as e:
             logger.error(f"Error detecting peaks: {e}")
             return [], np.array([]), energy
+    
+    def _select_top_peaks(self, energy, peaks, num_peaks):
+        """
+        Select only the top N peaks by prominence
+        
+        Args:
+            energy: Energy signal
+            peaks: Peak indices
+            num_peaks: Number of peaks to select
+            
+        Returns:
+            Filtered peak indices
+        """
+        try:
+            # Calculate prominence for each peak
+            prominences = signal.peak_prominences(energy, peaks)[0]
+            
+            # Sort by prominence and select top N
+            top_indices = np.argsort(prominences)[-num_peaks:]
+            top_peaks = peaks[np.sort(top_indices)]
+            
+            logger.info(f"Selected top {num_peaks} peaks by prominence")
+            return top_peaks
+            
+        except Exception as e:
+            logger.error(f"Error selecting top peaks: {e}")
+            return peaks[:num_peaks]
     
     def adaptive_threshold_detection(self, energy, timestamps):
         """
@@ -105,7 +140,7 @@ class PeakDetector:
             std_energy = np.std(energy_normalized)
             
             # Adaptive threshold = mean + k*std (k determines sensitivity)
-            k = 1.5  # Can be adjusted
+            k = 2.0  # Very high threshold for only major events
             adaptive_threshold = mean_energy + k * std_energy
             
             logger.info(f"Adaptive threshold: mean={mean_energy:.4f}, std={std_energy:.4f}, threshold={adaptive_threshold:.4f}")
@@ -116,6 +151,10 @@ class PeakDetector:
                 height=adaptive_threshold,
                 distance=self.min_distance_frames
             )
+            
+            # Filter to top peaks
+            if SELECT_TOP_CLIPS and len(peaks) > MAX_CLIPS:
+                peaks = self._select_top_peaks(energy_normalized, peaks, MAX_CLIPS)
             
             logger.info(f"Adaptive detection found {len(peaks)} peaks")
             

@@ -12,13 +12,23 @@ SR = 22050                # Sample rate (Hz)
 # Sound intensity threshold (0.0-1.0)
 # Lower = more sensitive (detects more events)
 # Higher = more specific (detects only loud events)
-SOUND_THRESHOLD = 0.65
+# OPTIMIZED FOR GOALS: Use 0.90-0.95 for best results
+SOUND_THRESHOLD = 0.85
 
 # Minimum distance between peaks (seconds)
-MIN_PEAK_DISTANCE = 5.0   # At least 5 seconds apart
+MIN_PEAK_DISTANCE = 8.0   # At least 8 seconds apart
 
 # Height of peaks (relative to max)
 PEAK_HEIGHT = 0.6
+
+# Select only top clips by prominence
+SELECT_TOP_CLIPS = True
+
+# Maximum number of clips to keep
+MAX_CLIPS = 30  # 30 clips × 20 seconds = 10 minutes
+
+# Minimum prominence for clip selection
+MIN_CLIP_PROMINENCE = 0.2
 
 # ============= CLIP EXTRACTION =============
 # Duration of clip around each detected peak (seconds)
