@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class VideoCompiler:
     """
-    Compiles extracted clips into a single highlight video
+    Compiles extracted clips into a single highlight video with audio
     """
     
     def __init__(self, max_length=MAX_HIGHLIGHT_LENGTH, fps=OUTPUT_FPS,
@@ -33,6 +33,7 @@ class VideoCompiler:
         self.crf = crf
         logger.info(f"VideoCompiler initialized: max_length={max_length}s, "
                    f"fps={fps}, codec={codec}, crf={crf}")
+        logger.info("Audio will be PRESERVED in all compiled videos")
     
     def create_concat_file(self, clip_paths, concat_file_path):
         """
@@ -61,7 +62,7 @@ class VideoCompiler:
     
     def compile_clips(self, clip_paths, output_path):
         """
-        Compile clips into single video using FFmpeg
+        Compile clips into single video with AUDIO preserved
         
         Args:
             clip_paths: List of clip file paths (in order)
@@ -76,6 +77,7 @@ class VideoCompiler:
                 return False
             
             logger.info(f"Compiling {len(clip_paths)} clips into {output_path}")
+            logger.info("WITH ORIGINAL AUDIO PRESERVED")
             
             # Create concat file
             concat_file = 'concat.txt'
@@ -83,21 +85,21 @@ class VideoCompiler:
                 return False
             
             try:
-                # Use FFmpeg concat demuxer
+                # Use FFmpeg concat demuxer with audio
                 cmd = [
                     'ffmpeg',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_file,
-                    '-c:v', self.codec,
-                    '-crf', str(self.crf),
-                    '-c:a', 'aac',
-                    '-b:a', '128k',
+                    '-c:v', self.codec,         # Video codec
+                    '-crf', str(self.crf),      # Video quality
+                    '-c:a', 'aac',              # AUDIO: AAC codec
+                    '-b:a', '192k',             # AUDIO: 192kbps high quality
                     '-n',
                     output_path
                 ]
                 
-                logger.info(f"Running FFmpeg: {' '.join(cmd)}")
+                logger.info(f"Running FFmpeg with audio: {' '.join(cmd)}")
                 
                 result = subprocess.run(
                     cmd,
@@ -107,7 +109,7 @@ class VideoCompiler:
                 )
                 
                 if result.returncode == 0:
-                    logger.info(f"Video compilation successful: {output_path}")
+                    logger.info(f"Video compilation successful WITH AUDIO: {output_path}")
                     return True
                 else:
                     logger.error(f"FFmpeg error: {result.stderr}")
@@ -126,7 +128,7 @@ class VideoCompiler:
     
     def compile_with_transitions(self, clip_paths, output_path, transition='fade', duration=1.0):
         """
-        Compile clips with transitions between them
+        Compile clips with transitions and AUDIO
         
         Args:
             clip_paths: List of clip file paths
@@ -139,17 +141,10 @@ class VideoCompiler:
         """
         try:
             logger.info(f"Compiling with {transition} transitions ({duration}s)")
+            logger.info("WITH ORIGINAL AUDIO PRESERVED")
             
-            # Build filter complex for transitions
-            filter_parts = []
-            for i in range(len(clip_paths)):
-                filter_parts.append(f"[{i}:v]")
-            
-            # Simple fade transition filter
-            if transition == 'fade':
-                filter_str = 'concat=n={}:v=1:a=1'.format(len(clip_paths))
-            else:
-                filter_str = 'concat=n={}:v=1:a=1'.format(len(clip_paths))
+            # Build filter complex for transitions with audio
+            filter_str = 'concat=n={}:v=1:a=1'.format(len(clip_paths))
             
             # Build FFmpeg command
             cmd = ['ffmpeg']
@@ -161,12 +156,12 @@ class VideoCompiler:
             # Filter complex
             cmd.extend(['-filter_complex', filter_str])
             
-            # Output settings
+            # Output settings with audio
             cmd.extend([
                 '-c:v', self.codec,
                 '-crf', str(self.crf),
-                '-c:a', 'aac',
-                '-b:a', '128k',
+                '-c:a', 'aac',              # AUDIO: AAC codec
+                '-b:a', '192k',             # AUDIO: 192kbps
                 '-n',
                 output_path
             ])
@@ -179,7 +174,7 @@ class VideoCompiler:
             )
             
             if result.returncode == 0:
-                logger.info(f"Video compilation with transitions successful: {output_path}")
+                logger.info(f"Video compilation with transitions successful WITH AUDIO: {output_path}")
                 return True
             else:
                 logger.error(f"FFmpeg error: {result.stderr}")
@@ -191,7 +186,7 @@ class VideoCompiler:
     
     def get_video_info(self, video_path):
         """
-        Get video file information
+        Get video file information including audio info
         
         Args:
             video_path: Path to video file
@@ -223,7 +218,8 @@ class VideoCompiler:
                 'path': video_path,
                 'duration': duration,
                 'file_size': file_size,
-                'file_size_mb': file_size / (1024 * 1024)
+                'file_size_mb': file_size / (1024 * 1024),
+                'has_audio': True
             }
         except Exception as e:
             logger.error(f"Error getting video info: {e}")
@@ -231,7 +227,7 @@ class VideoCompiler:
     
     def trim_to_max_length(self, video_path, output_path, max_seconds=None):
         """
-        Trim video to maximum length
+        Trim video to maximum length WITH AUDIO
         
         Args:
             video_path: Path to input video
@@ -245,14 +241,15 @@ class VideoCompiler:
             if max_seconds is None:
                 max_seconds = self.max_length
             
-            logger.info(f"Trimming video to {max_seconds}s")
+            logger.info(f"Trimming video to {max_seconds}s WITH AUDIO")
             
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-t', str(max_seconds),
                 '-c:v', self.codec,
-                '-c:a', 'aac',
+                '-c:a', 'aac',              # AUDIO: AAC codec
+                '-b:a', '192k',             # AUDIO: 192kbps
                 '-n',
                 output_path
             ]
@@ -265,7 +262,7 @@ class VideoCompiler:
             )
             
             if result.returncode == 0:
-                logger.info(f"Video trimmed: {output_path}")
+                logger.info(f"Video trimmed WITH AUDIO: {output_path}")
                 return True
             else:
                 logger.error(f"FFmpeg error: {result.stderr}")

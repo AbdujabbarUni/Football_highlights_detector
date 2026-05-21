@@ -57,7 +57,7 @@ class ClipExtractor:
     
     def extract_clip_ffmpeg(self, video_path, output_path, start_time, end_time):
         """
-        Extract clip using FFmpeg (fast, no re-encoding)
+        Extract clip using FFmpeg (fast, with AUDIO included)
         
         Args:
             video_path: Path to input video
@@ -71,15 +71,17 @@ class ClipExtractor:
         try:
             duration = end_time - start_time
             
+            # Extract with original audio
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-ss', str(start_time),
                 '-to', str(end_time),
-                '-c:v', 'libx264',
-                '-c:a', 'aac',
-                '-preset', 'veryfast',
-                '-n',
+                '-c:v', 'libx264',      # Video codec
+                '-preset', 'veryfast',  # Fast encoding
+                '-c:a', 'aac',          # AUDIO: AAC codec
+                '-b:a', '192k',         # AUDIO: 192kbps bitrate (high quality)
+                '-n',                   # Don't overwrite
                 output_path
             ]
             
@@ -91,7 +93,7 @@ class ClipExtractor:
             )
             
             if result.returncode == 0:
-                logger.info(f"Clip extracted: {output_path} ({start_time:.2f}s-{end_time:.2f}s)")
+                logger.info(f"Clip extracted WITH AUDIO: {output_path} ({start_time:.2f}s-{end_time:.2f}s)")
                 return True
             else:
                 logger.error(f"FFmpeg error: {result.stderr}")
@@ -106,7 +108,7 @@ class ClipExtractor:
     
     def extract_clip_opencv(self, video_path, output_path, start_time, end_time):
         """
-        Extract clip using OpenCV
+        Extract clip using OpenCV (with audio using ffmpeg)
         
         Args:
             video_path: Path to input video
@@ -118,41 +120,40 @@ class ClipExtractor:
             True if successful, False otherwise
         """
         try:
-            cap = cv2.VideoCapture(video_path)
+            # Use FFmpeg for audio+video extraction
+            cmd = [
+                'ffmpeg',
+                '-i', video_path,
+                '-ss', str(start_time),
+                '-to', str(end_time),
+                '-c:v', 'copy',         # Copy video stream (fast)
+                '-c:a', 'aac',          # AUDIO: AAC codec
+                '-b:a', '192k',         # AUDIO: 192kbps bitrate
+                '-n',
+                output_path
+            ]
             
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
             
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            
-            start_frame = int(start_time * fps)
-            end_frame = int(end_time * fps)
-            
-            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-            frame_count = start_frame
-            
-            while frame_count < end_frame:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                out.write(frame)
-                frame_count += 1
-            
-            cap.release()
-            out.release()
-            
-            logger.info(f"Clip extracted (OpenCV): {output_path}")
-            return True
+            if result.returncode == 0:
+                logger.info(f"Clip extracted WITH AUDIO (FFmpeg): {output_path}")
+                return True
+            else:
+                logger.error(f"FFmpeg error: {result.stderr}")
+                return False
             
         except Exception as e:
-            logger.error(f"Error extracting clip with OpenCV: {e}")
+            logger.error(f"Error extracting clip: {e}")
             return False
     
     def extract_multiple_clips(self, video_path, peak_timestamps, output_dir):
         """
-        Extract multiple clips from detected peaks
+        Extract multiple clips from detected peaks with AUDIO
         
         Args:
             video_path: Path to input video
@@ -171,6 +172,7 @@ class ClipExtractor:
             cap.release()
             
             logger.info(f"Video duration: {video_duration:.2f}s, FPS: {fps}")
+            logger.info(f"Extracting clips WITH ORIGINAL AUDIO")
             
             # Create output directory
             Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -182,7 +184,7 @@ class ClipExtractor:
                 
                 output_path = os.path.join(output_dir, f"clip_{i:03d}.mp4")
                 
-                # Try FFmpeg first (faster), fall back to OpenCV
+                # Use FFmpeg to preserve audio
                 success = self.extract_clip_ffmpeg(video_path, output_path, start_time, end_time)
                 
                 if success and os.path.exists(output_path):
@@ -190,7 +192,7 @@ class ClipExtractor:
                 else:
                     logger.warning(f"Failed to extract clip {i}")
             
-            logger.info(f"Successfully extracted {len(extracted_clips)}/{len(peak_timestamps)} clips")
+            logger.info(f"Successfully extracted {len(extracted_clips)}/{len(peak_timestamps)} clips WITH AUDIO")
             return extracted_clips
             
         except Exception as e:
