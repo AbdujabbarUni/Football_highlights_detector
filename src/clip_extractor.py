@@ -57,7 +57,7 @@ class ClipExtractor:
     
     def extract_clip_ffmpeg(self, video_path, output_path, start_time, end_time):
         """
-        Extract clip using FFmpeg with AUDIO - COPY STREAMS (fastest, no re-encoding)
+        Extract clip using FFmpeg with AUDIO - Re-encode to ensure audio is included
         
         Args:
             video_path: Path to input video
@@ -71,15 +71,18 @@ class ClipExtractor:
         try:
             duration = end_time - start_time
             
-            # IMPORTANT: Use -c:v copy and -c:a copy to preserve original quality
+            # Extract with re-encoding to ensure audio is properly included
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-ss', str(start_time),
-                '-to', str(end_time),
-                '-c:v', 'copy',         # COPY video stream (NO re-encoding)
-                '-c:a', 'copy',         # COPY audio stream (NO re-encoding) *** CRITICAL ***
-                '-n',                   # Don't overwrite
+                '-t', str(duration),          # Use -t for duration instead of -to
+                '-c:v', 'libx264',            # Video codec
+                '-preset', 'ultrafast',       # Fast encoding
+                '-crf', '28',                 # Quality (lower = better, 28 is good balance)
+                '-c:a', 'aac',                # AUDIO: AAC codec *** CRITICAL ***
+                '-b:a', '128k',               # AUDIO: 128kbps (good quality)
+                '-y',                         # Overwrite output file
                 output_path
             ]
             
@@ -91,7 +94,7 @@ class ClipExtractor:
             )
             
             if result.returncode == 0:
-                logger.info(f"Clip extracted WITH ORIGINAL AUDIO: {output_path} ({start_time:.2f}s-{end_time:.2f}s)")
+                logger.info(f"Clip extracted WITH AUDIO: {output_path} ({start_time:.2f}s-{end_time:.2f}s, duration: {duration:.2f}s)")
                 return True
             else:
                 logger.error(f"FFmpeg error: {result.stderr}")
@@ -106,7 +109,7 @@ class ClipExtractor:
     
     def extract_multiple_clips(self, video_path, peak_timestamps, output_dir):
         """
-        Extract multiple clips from detected peaks WITH ORIGINAL AUDIO
+        Extract multiple clips from detected peaks WITH AUDIO
         
         Args:
             video_path: Path to input video
@@ -125,7 +128,7 @@ class ClipExtractor:
             cap.release()
             
             logger.info(f"Video duration: {video_duration:.2f}s, FPS: {fps}")
-            logger.info(f"Extracting {len(peak_timestamps)} clips WITH ORIGINAL AUDIO")
+            logger.info(f"Extracting {len(peak_timestamps)} clips WITH AUDIO")
             
             # Create output directory
             Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -137,15 +140,16 @@ class ClipExtractor:
                 
                 output_path = os.path.join(output_dir, f"clip_{i:03d}.mp4")
                 
-                # Use FFmpeg with COPY streams to preserve original audio
+                # Extract clip with audio
                 success = self.extract_clip_ffmpeg(video_path, output_path, start_time, end_time)
                 
                 if success and os.path.exists(output_path):
                     extracted_clips.append(output_path)
+                    logger.info(f"Clip {i}: {output_path}")
                 else:
                     logger.warning(f"Failed to extract clip {i}")
             
-            logger.info(f"Successfully extracted {len(extracted_clips)}/{len(peak_timestamps)} clips WITH ORIGINAL AUDIO")
+            logger.info(f"Successfully extracted {len(extracted_clips)}/{len(peak_timestamps)} clips WITH AUDIO")
             return extracted_clips
             
         except Exception as e:

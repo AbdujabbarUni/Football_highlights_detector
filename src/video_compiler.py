@@ -62,7 +62,7 @@ class VideoCompiler:
     
     def compile_clips(self, clip_paths, output_path):
         """
-        Compile clips into single video with AUDIO preserved using COPY streams
+        Compile clips into single video with AUDIO preserved
         
         Args:
             clip_paths: List of clip file paths (in order)
@@ -77,7 +77,7 @@ class VideoCompiler:
                 return False
             
             logger.info(f"Compiling {len(clip_paths)} clips into {output_path}")
-            logger.info("WITH ORIGINAL AUDIO PRESERVED (using stream copy)")
+            logger.info("WITH AUDIO INCLUDED")
             
             # Create concat file
             concat_file = 'concat.txt'
@@ -85,19 +85,22 @@ class VideoCompiler:
                 return False
             
             try:
-                # Use FFmpeg concat demuxer with COPY streams (no re-encoding)
+                # Use FFmpeg concat demuxer with proper audio handling
                 cmd = [
                     'ffmpeg',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_file,
-                    '-c:v', 'copy',         # COPY video (no re-encoding)
-                    '-c:a', 'copy',         # COPY audio (no re-encoding) *** CRITICAL ***
-                    '-n',
+                    '-c:v', 'libx264',            # Re-encode video to ensure proper muxing
+                    '-preset', 'ultrafast',       # Fast encoding
+                    '-crf', '28',                 # Quality
+                    '-c:a', 'aac',                # AUDIO: AAC codec *** CRITICAL ***
+                    '-b:a', '128k',               # AUDIO: 128kbps
+                    '-y',
                     output_path
                 ]
                 
-                logger.info(f"Running FFmpeg with COPY streams for audio: {' '.join(cmd)}")
+                logger.info(f"Running FFmpeg compilation with audio")
                 
                 result = subprocess.run(
                     cmd,
@@ -122,62 +125,6 @@ class VideoCompiler:
             return False
         except Exception as e:
             logger.error(f"Error compiling clips: {e}")
-            return False
-    
-    def compile_with_transitions(self, clip_paths, output_path, transition='fade', duration=1.0):
-        """
-        Compile clips with transitions and AUDIO
-        
-        Args:
-            clip_paths: List of clip file paths
-            output_path: Path for output video
-            transition: Type of transition ('fade', 'dissolve')
-            duration: Transition duration in seconds
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info(f"Compiling with {transition} transitions ({duration}s)")
-            logger.info("WITH ORIGINAL AUDIO PRESERVED")
-            
-            # Build filter complex for transitions with audio
-            filter_str = 'concat=n={}:v=1:a=1'.format(len(clip_paths))
-            
-            # Build FFmpeg command
-            cmd = ['ffmpeg']
-            
-            # Input files
-            for clip in clip_paths:
-                cmd.extend(['-i', clip])
-            
-            # Filter complex
-            cmd.extend(['-filter_complex', filter_str])
-            
-            # Output settings with audio (using copy)
-            cmd.extend([
-                '-c:v', 'copy',
-                '-c:a', 'copy',             # COPY audio (no re-encoding)
-                '-n',
-                output_path
-            ])
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
-            
-            if result.returncode == 0:
-                logger.info(f"Video compilation with transitions successful WITH AUDIO: {output_path}")
-                return True
-            else:
-                logger.error(f"FFmpeg error: {result.stderr}")
-                return False
-        
-        except Exception as e:
-            logger.error(f"Error compiling with transitions: {e}")
             return False
     
     def get_video_info(self, video_path):
@@ -223,7 +170,7 @@ class VideoCompiler:
     
     def trim_to_max_length(self, video_path, output_path, max_seconds=None):
         """
-        Trim video to maximum length WITH AUDIO using COPY streams
+        Trim video to maximum length WITH AUDIO
         
         Args:
             video_path: Path to input video
@@ -237,15 +184,18 @@ class VideoCompiler:
             if max_seconds is None:
                 max_seconds = self.max_length
             
-            logger.info(f"Trimming video to {max_seconds}s WITH ORIGINAL AUDIO")
+            logger.info(f"Trimming video to {max_seconds}s WITH AUDIO")
             
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-t', str(max_seconds),
-                '-c:v', 'copy',            # COPY video (no re-encoding)
-                '-c:a', 'copy',            # COPY audio (no re-encoding) *** CRITICAL ***
-                '-n',
+                '-c:v', 'libx264',        # Re-encode video
+                '-preset', 'ultrafast',   # Fast
+                '-crf', '28',             # Quality
+                '-c:a', 'aac',            # AUDIO: AAC codec *** CRITICAL ***
+                '-b:a', '128k',           # AUDIO: 128kbps
+                '-y',
                 output_path
             ]
             
